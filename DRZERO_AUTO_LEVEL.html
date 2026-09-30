@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DRZERO AUTO LEVEL</title>
+<style>
+:root{--bg:#0b0d11;--panel:#151922;--line:#292f3a;--gold:#e4b85d;--green:#6bd49b;--txt:#f4f4f5;--muted:#a1a1aa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:15px system-ui,Arial;padding:18px;max-width:760px;margin:auto}
+header{padding:14px 2px 22px}h1{font-size:30px;line-height:1.05;margin:8px 0}h1 span{color:var(--gold)}p{color:var(--muted);line-height:1.5}.tag{color:var(--green);font-size:12px;letter-spacing:2px;font-weight:800}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}.title{font-size:12px;color:var(--gold);font-weight:800;letter-spacing:1px;margin-bottom:12px}
+button,.filebtn{border:0;border-radius:11px;padding:13px 16px;background:var(--gold);color:#17130b;font-weight:800;font-size:14px;cursor:pointer;display:inline-block;text-align:center}
+button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#292f3a;color:var(--txt)}input[type=file]{display:none}
+label{display:block;color:var(--muted);font-size:13px;margin:12px 0 5px}input[type=range]{width:100%;accent-color:var(--gold)}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:130px}audio{width:100%;margin-top:12px}canvas{width:100%;height:110px;background:#090b0f;border-radius:10px}
+.status{color:var(--green);min-height:24px;font-size:13px;margin-top:12px;overflow-wrap:anywhere}
+a{color:var(--gold);font-weight:800;display:inline-block;margin-top:10px}small{color:var(--muted)}.metric{font-size:14px;color:var(--muted)}.metric b{color:var(--txt)}
+</style></head><body>
+<header><div class="tag">DRZERO · AUDIO TOOLS</div><h1>AUTO <span>LEVEL</span></h1><p>Corrige automáticamente los desniveles de volumen de tu canción. Analiza el audio por pequeños fragmentos, suaviza los cambios y controla los picos. El procesamiento se realiza en tu dispositivo.</p></header>
+<section class="panel"><div class="title">01 / CARGA TU CANCIÓN</div><label class="filebtn" for="file">＋ Elegir archivo de audio</label><input id="file" type="file" accept="audio/*"><p id="filename">Ningún audio cargado</p><canvas id="wave" width="1000" height="140"></canvas><audio id="player" controls></audio></section>
+<section class="panel"><div class="title">02 / NIVELACIÓN AUTOMÁTICA</div>
+<label for="strength">Intensidad de nivelación: <b id="strengthv">70%</b></label><input id="strength" type="range" min="20" max="100" value="70">
+<label for="target">Nivel objetivo: <b id="targetv">−18 dB</b></label><input id="target" type="range" min="-26" max="-12" value="-18">
+<label for="maxgain">Ganancia máxima aplicada: <b id="maxgainv">+9 dB</b></label><input id="maxgain" type="range" min="3" max="18" value="9">
+<div class="row" style="margin-top:16px"><button id="process" disabled>⚡ Nivelar automáticamente</button><button class="secondary" id="reset" disabled>Restablecer</button></div>
+<div class="status" id="status">Carga una canción para comenzar.</div><div id="metrics" class="metric"></div><a id="download" hidden>⬇ Descargar canción nivelada (WAV)</a>
+</section><p><small>Consejo: empieza con la intensidad al 70%. La nivelación puede cambiar la dinámica artística de la mezcla; escucha el resultado antes de publicarlo. Para voces y beat ya mezclados, el programa procesa el audio completo, no pistas separadas.</small></p>
+<script>
+const $=id=>document.getElementById(id);let audioBuffer=null, originalUrl=null, resultUrl=null;
+['strength','target','maxgain'].forEach(id=>$(id).oninput=()=>{let v=$(id).value;$(id+'v').textContent=id==='strength'?v+'%':id==='target'?'−'+Math.abs(v)+' dB':'+'+v+' dB'});
+$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('status').textContent='Cargando y analizando audio…';$('download').hidden=true;try{const ctx=new (window.AudioContext||window.webkitAudioContext)();audioBuffer=await ctx.decodeAudioData(await f.arrayBuffer());await ctx.close();$('filename').textContent=f.name+' · '+(audioBuffer.duration/60).toFixed(2)+' min · '+audioBuffer.sampleRate+' Hz';if(originalUrl)URL.revokeObjectURL(originalUrl);originalUrl=URL.createObjectURL(f);$('player').src=originalUrl;$('process').disabled=false;$('reset').disabled=false;draw(audioBuffer);$('status').textContent='Audio listo. Pulsa Nivelar automáticamente.';$('metrics').textContent='';}catch(err){$('status').textContent='No se pudo abrir este audio. Prueba con WAV o MP3.'}};
+function draw(b){const c=$('wave'),g=c.getContext('2d'),w=c.width,h=c.height;g.clearRect(0,0,w,h);g.strokeStyle='#292f3a';g.beginPath();g.moveTo(0,h/2);g.lineTo(w,h/2);g.stroke();const d=b.getChannelData(0),step=Math.max(1,Math.floor(d.length/w));g.strokeStyle='#e4b85d';g.beginPath();for(let x=0;x<w;x++){let lo=1,hi=-1;for(let i=x*step;i<Math.min(d.length,(x+1)*step);i++){lo=Math.min(lo,d[i]);hi=Math.max(hi,d[i])}g.moveTo(x,h/2-hi*h*.43);g.lineTo(x,h/2-lo*h*.43)}g.stroke()}
+function wav16(b){const n=b.numberOfChannels,len=b.length,bytes=44+len*n*2,ab=new ArrayBuffer(bytes),v=new DataView(ab);const str=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};str(0,'RIFF');v.setUint32(4,bytes-8,true);str(8,'WAVE');str(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,n,true);v.setUint32(24,b.sampleRate,true);v.setUint32(28,b.sampleRate*n*2,true);v.setUint16(32,n*2,true);v.setUint16(34,16,true);str(36,'data');v.setUint32(40,bytes-44,true);let pos=44;for(let i=0;i<len;i++)for(let c=0;c<n;c++){let x=Math.max(-1,Math.min(1,b.getChannelData(c)[i]));v.setInt16(pos,x<0?x*32768:x*32767,true);pos+=2}return ab}
+$('process').onclick=async()=>{if(!audioBuffer)return;$('process').disabled=true;$('download').hidden=true;$('status').textContent='Analizando y nivelando…';await new Promise(r=>setTimeout(r,30));try{
+const b=audioBuffer,n=b.numberOfChannels,len=b.length,rate=b.sampleRate,block=Math.max(256,Math.floor(rate*.05)),blocks=Math.ceil(len/block),target=Math.pow(10,Number($('target').value)/20),strength=Number($('strength').value)/100,maxGain=Math.pow(10,Number($('maxgain').value)/20);
+let rms=new Float64Array(blocks),peak=new Float64Array(blocks);
+for(let k=0;k<blocks;k++){let sum=0,count=0,p=0,start=k*block,end=Math.min(len,start+block);for(let c=0;c<n;c++){let d=b.getChannelData(c);for(let i=start;i<end;i++){let x=d[i];sum+=x*x;p=Math.max(p,Math.abs(x));count++}}rms[k]=Math.sqrt(sum/Math.max(1,count));peak[k]=p}
+let gains=new Float64Array(blocks);for(let k=0;k<blocks;k++){let wanted=rms[k]>1e-6?target/rms[k]:1;wanted=Math.max(1/maxGain,Math.min(maxGain,wanted));gains[k]=Math.pow(wanted,strength)}
+// Smooth gain changes across adjacent blocks to avoid audible pumping/clicks.
+for(let pass=0;pass<2;pass++){for(let k=1;k<blocks;k++)gains[k]=gains[k-1]*.65+gains[k]*.35}
+const out=new AudioBuffer({length:len,numberOfChannels:n,sampleRate:rate});
+for(let c=0;c<n;c++){const src=b.getChannelData(c),dst=out.getChannelData(c);for(let i=0;i<len;i++){let k=Math.min(blocks-1,Math.floor(i/block));let next=Math.min(blocks-1,k+1),t=(i%block)/block;let gain=gains[k]*(1-t)+gains[next]*t;let x=src[i]*gain; // gentle peak safety ceiling
+dst[i]=Math.max(-.999,Math.min(.999,x));}}
+const blob=new Blob([wav16(out)],{type:'audio/wav'});if(resultUrl)URL.revokeObjectURL(resultUrl);resultUrl=URL.createObjectURL(blob);$('download').href=resultUrl;$('download').download='DRZERO_AUTO_LEVEL.wav';$('download').hidden=false;$('player').src=resultUrl;$('status').textContent='¡Listo! Tu canción ya está nivelada.';$('metrics').textContent='Procesado: '+(out.duration/60).toFixed(2)+' min · WAV 16-bit · '+rate+' Hz. Escucha y descarga el resultado.';draw(out);
+}catch(err){$('status').textContent='No se pudo procesar: '+err.message}finally{$('process').disabled=false}};
+$('reset').onclick=()=>{if(!audioBuffer)return;$('player').src=originalUrl;draw(audioBuffer);$('download').hidden=true;$('status').textContent='Se restauró el audio original.';$('metrics').textContent=''};
+</script></body></html>
